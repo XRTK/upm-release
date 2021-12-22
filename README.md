@@ -10,23 +10,18 @@ Part of the [Mixed Reality Toolkit (XRTK)](https://github.com/XRTK) open source 
 
 ```yaml
 jobs:
-  validate:
-  strategy:
-      matrix:
-        runner: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.runner }}
+  publish:
+    runs-on:  ubuntu-latest
 
-    outputs:
-      editor-path: ${{ steps.unity-validate.outputs.editor-path }}
-      project-path: ${{ steps.unity-validate.outputs.project-path }}
     steps:
-      - uses: actions/checkout@v2
-
-      - id: unity-validate
-        uses: xrtk/unity-validate@main
-          with:
-            modules: 'android ios'
-
-        run: echo ${{ steps.unity-validate.outputs.editor-path }}
-        run: echo ${{ steps.unity-validate.outputs.project-path }}
+      - uses: xrtk/upm-release@main
+        name: publish upm package
+        with:
+          upm-username: 'xrtk-build-bot'
+          upm-email: 'xrtk-build-bot@xrtk.io'
+          upm-auth-token: '${{ secrets.UPM_CREDENTIALS }}'
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+          github-pat: '${{ secrets.GITHUB_PAT }}'
+          github-username: 'XRTK-Build-Bot'
+          upm-server-address: 'http://upm.xrtk.io:4873'
 ```
