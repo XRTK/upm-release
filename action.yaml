@@ -1,0 +1,157 @@
+name: 'UPM Release (XRTK)'
+description: 'An atomic GitHub action to publish UPM (unity package manager) packages.'
+inputs:
+  upm-username:
+    description: 'The user name doing the publishing.'
+    required: true
+    default: ''
+  upm-email:
+    description: 'The email address of the user doing the publishing.'
+    default: ''
+  upm-auth-token:
+    description: 'Auth Token for NPM/UPM server.'
+    required: true
+    default: ''
+  github-pat:
+    description: 'A GitHub Personal Access Token (PAT).'
+    required: true
+    default: ''
+  github-token:
+    description: 'A Github actions token.'
+    required: true
+    default: ''
+  github-username:
+    description: 'A username to sign the commits to in your repository. Defaults to the name of the person or app that initiated the workflow.'
+    required: false
+    default: '${{ github.actor }}'
+  upm-server-address:
+    description: 'The url of the upm/npm server. (Defaults to NPM registry)'
+    required: false
+    default: 'https://registry.npmjs.org'
+
+runs:
+  using: "composite"
+  steps:
+    - id: target
+      name: Set target branch
+      run: |
+        $isPreview = '${{ github.base_ref == 'main' }}'
+        if ($isPreview -eq 'true') {
+          $branch = '${{ github.head_ref }}'
+        } else {
+          $branch = '${{ github.ref }}'
+        }
+
+        Write-Host "::set-output name=branch::$branch"
+      shell: pwsh
+
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ steps.target.outputs.branch }}
+        fetch-depth: 0
+
+    - id: validate-version
+      name: Validate Package Version
+      run: |
+        $branch = '${{ steps.target.outputs.branch }}'
+        $isPreview = '${{ github.base_ref == 'main' }}'
+        $packageFile = '**/Packages/**/package.json'
+
+        if ( -not (Test-Path -Path $packageFile) ) {
+          Write-Error "Failed to find a valid project manifest at `"$versionFile`""
+          exit 1
+        }
+
+        $packageInfo = (Get-Content $packageFile -Raw) | ConvertFrom-Json
+        Write-Host "Detected Project Version:" $packageInfo.version
+        $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
+
+        $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
+        $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]$lastRelease
+
+        if ([string]::IsNullOrEmpty($lastRelease)) {
+          Write-Host "New Release needed $packageSemVer"
+        } else {
+          Write-Host "Last Release $lastReleaseSemVer"
+        }
+
+        if ($isPreview -eq 'true') {
+          if ($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') {
+            $preview = ([int]$Matches.preview) + 1
+          } else {
+            $preview = 1
+          }
+
+          $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch, "preview.$preview")
+          Write-Host Preview build calculated: $newPackageSemVer
+          $packageInfo.version = $newPackageSemVer.ToString()
+        } else {
+          if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -and
+              ($lastReleaseSemVer.Patch -eq $packageSemVer.Patch)) {
+            $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
+          } else {
+            $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
+          }
+
+          Write-Host Release build calculated: $newPackageSemVer
+
+          if ($newPackageSemVer -gt $packageSemVer) {
+            Write-Host $packageInfo.version -> $newPackageSemVer.ToString()
+            $packageInfo.version = $newPackageSemVer.ToString()
+          } else {
+            Write-Host Publishing Version: $packageInfo.version
+          }
+        }
+
+        $version = $packageInfo.version
+        Write-Host "::set-output name=upm-package-version::$version"
+        $packageInfo | ConvertTo-Json | Set-Content $packageFile
+
+        if ($isPreview -eq 'true') {
+          echo "skip version push"
+        } else {
+          git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
+          git config user.name "${{ inputs.github-username }}"
+
+          git status
+          git pull
+          git add '**/Packages/**/package.json'
+          git status
+          git commit -m "[skip ci] $version"
+          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
+          git status
+        }
+
+      shell: pwsh
+      working-directory: ${{ github.workspace }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_PAT: ${{ inputs.github-pat }}
+
+    - name: upm subtree split
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = $packageDir.replace('${{ github.workspace }}/','')
+        Write-Host $packageDir
+        git subtree split --prefix="$packageDir" -b upm
+        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        GITHUB_PAT: ${{ inputs.github-pat }}
+
+    - name: upm publish
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        cd $packageDir
+        npm install -g npm-cli-login
+        npm-cli-login -u ${{ inputs.upm-username }} -p "$env:UPM_AUTH_TOKEN" -e ${{ inputs.upm-email }} -r ${{ inputs.upm-server-address }}
+        npm publish --registry=${{ inputs.upm-server-address }}
+        npm logout --registry=${{ inputs.upm-server-address }}
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        UPM_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
