@@ -7,6 +7,7 @@ inputs:
     default: ''
   upm-email:
     description: 'The email address of the user doing the publishing.'
+    required: true
     default: ''
   upm-auth-token:
     description: 'Auth Token for NPM/UPM server.'
@@ -113,6 +114,8 @@ runs:
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
 
+          gh auth status
+          
           git status
           git pull
           git add '**/Packages/**/package.json'
