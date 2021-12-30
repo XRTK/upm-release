@@ -8,6 +8,10 @@ Part of the [Mixed Reality Toolkit (XRTK)](https://github.com/XRTK) open source 
 
 ## How to use
 
+1. Setup GitHub repository or organization secrets:
+  - UPM_CREDENTIALS - npm/upm token used to sign into the server or service.
+  - GITHUB_PAT - A Personal Access Token for GitHub to make commits and publish the release.
+
 ```yaml
 jobs:
   publish:
