@@ -77,6 +77,11 @@ runs:
         }
 
         if ($isPreview -eq 'true') {
+          if ($packageSemVer -le $lastReleaseSemVer) {
+            $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
+            $packageSemVer = $lastReleaseSemVer
+          }
+
           if ($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') {
             $preview = ([int]$Matches.preview) + 1
           } else {
