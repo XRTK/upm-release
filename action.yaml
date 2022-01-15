@@ -65,7 +65,12 @@ runs:
 
         $packageInfo = (Get-Content $packageFile -Raw) | ConvertFrom-Json
         Write-Host "Detected Project Version:" $packageInfo.version
-        $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
+
+        try {
+          $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
+        } catch {
+          $lastRelease = [System.Management.Automation.SemanticVersion]::New(0, 0, 0)
+        }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
         $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]$lastRelease
