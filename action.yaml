@@ -142,7 +142,7 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm subtree split
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ github.ref == 'refs/heads/main' }}
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
