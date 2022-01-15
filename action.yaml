@@ -115,7 +115,7 @@ runs:
           git config user.name "${{ inputs.github-username }}"
 
           gh auth status
-          
+
           git status
           git pull
           git add '**/Packages/**/package.json'
@@ -153,7 +153,15 @@ runs:
         npm install -g npm-cli-login
         npm-cli-login -u ${{ inputs.upm-username }} -p "$env:UPM_AUTH_TOKEN" -e ${{ inputs.upm-email }} -r ${{ inputs.upm-server-address }}
         npm publish --registry=${{ inputs.upm-server-address }}
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
         npm logout --registry=${{ inputs.upm-server-address }}
+
+        exit $exit
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
