@@ -126,10 +126,15 @@ runs:
           git add '**/Packages/**/package.json'
           git status
           git commit -m "[skip ci] $version"
-          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
-          git status
-        }
+          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force$exit = 0
 
+          if ($LASTEXITCODE -gt 0) {
+            $exit = $LASTEXITCODE
+          }
+
+          git status
+          exit $exit
+        }
       shell: pwsh
       working-directory: ${{ github.workspace }}
       env:
