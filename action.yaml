@@ -72,6 +72,7 @@ runs:
 
         if ($lastRelease -match "fatal") {
           $lastRelease = "0.0.1"
+          $LASTEXITCODE = 0
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
@@ -162,13 +163,18 @@ runs:
       env:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '16.x'
+          registry-url: '${{ inputs.upm-server-address }}'
+
     - name: upm publish
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
-        npm install -g npm-cli-login
-        npm-cli-login -u ${{ inputs.upm-username }} -p "$env:UPM_AUTH_TOKEN" -e ${{ inputs.upm-email }} -r ${{ inputs.upm-server-address }}
+        npm ci
         npm publish --registry=${{ inputs.upm-server-address }}
         $exit = 0
 
@@ -182,4 +188,4 @@ runs:
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
-        UPM_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+        NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
