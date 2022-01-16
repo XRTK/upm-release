@@ -102,6 +102,7 @@ runs:
           if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -and
               ($lastReleaseSemVer.Patch -eq $packageSemVer.Patch)) {
             $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
+            $lastRelease = $newPackageSemVer.ToString()
           } else {
             $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
           }
