@@ -48,8 +48,8 @@ runs:
 
     - uses: actions/checkout@v2
       with:
+        token: ${{ inputs.github-pat }}
         ref: ${{ steps.target.outputs.branch }}
-        token: '${{ inputs.github-pat }}'
         fetch-depth: 0
 
     - id: validate-version
