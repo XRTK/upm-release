@@ -90,7 +90,7 @@ runs:
             $packageSemVer = $lastReleaseSemVer
           }
 
-          if ($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') {
+          if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -or ($packageSemVer.PreReleaseLabel -match '(?<preview>\d+)')) {
             $preview = ([int]$Matches.preview) + 1
           } else {
             $preview = 1
@@ -156,8 +156,9 @@ runs:
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
-        Write-Host $packageDir
+        Write-Host "::group:: $packageDir subtree split"
         git subtree split --prefix="$packageDir" -b upm
+        Write-Host "::endgroup::"
         git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
         git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
       working-directory: ${{ github.workspace }}
