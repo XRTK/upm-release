@@ -128,14 +128,12 @@ runs:
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
 
-          gh auth status
-
           git status
           git pull
           git add '**/Packages/**/package.json'
           git status
           git commit -m "[skip ci] $version"
-          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force$exit = 0
+          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
 
           if ($LASTEXITCODE -gt 0) {
             $exit = $LASTEXITCODE
