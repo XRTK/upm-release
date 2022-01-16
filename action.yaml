@@ -66,10 +66,12 @@ runs:
         $packageInfo = (Get-Content $packageFile -Raw) | ConvertFrom-Json
         Write-Host "Detected Project Version:" $packageInfo.version
 
+        $env:GIT_REDIRECT_STDERR = '2>&1'
+
         try {
           $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
         } catch {
-          $lastRelease = [System.Management.Automation.SemanticVersion]::New(0, 0, 0)
+          $lastRelease = [System.Management.Automation.SemanticVersion]::New(0, 0, 1)
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
