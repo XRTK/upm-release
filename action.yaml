@@ -57,7 +57,7 @@ runs:
       run: |
         $branch = '${{ steps.target.outputs.branch }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
-        $packageFile = '**/Packages/**/package.json'
+        $packageFile = '**/packages/**/package.json'
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$versionFile`""
@@ -85,14 +85,14 @@ runs:
         }
 
         if ($isPreview -eq 'true') {
-          if ($packageSemVer -le $lastReleaseSemVer) {
-            $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
-            $packageSemVer = $lastReleaseSemVer
-          }
-
           if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -or ($packageSemVer.PreReleaseLabel -match '(?<preview>\d+)')) {
             $preview = ([int]$Matches.preview) + 1
           } else {
+            if ($packageSemVer -le $lastReleaseSemVer) {
+              $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
+              $packageSemVer = $lastReleaseSemVer
+            }
+
             $preview = 1
           }
 
@@ -111,10 +111,26 @@ runs:
           Write-Host Release build calculated: $newPackageSemVer
 
           if ($newPackageSemVer -gt $packageSemVer) {
-            Write-Host $packageInfo.version -> $newPackageSemVer.ToString()
-            $packageInfo.version = $newPackageSemVer.ToString()
+            $packageSemVer = $newPackageSemVer
+            Write-Host $packageInfo.version -> $packageSemVer.ToString()
+            $packageInfo.version = $packageSemVer.ToString()
           } else {
             Write-Host Publishing Version: $packageInfo.version
+          }
+
+          Get-ChildItem -Path "**/packages/com.xrtk.gltf/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+            Get-ChildItem -Path $_ -File | ForEach-Object -Process {
+              $fileContent = Get-Content $($_.FullName) -Raw
+
+              # update assembly version
+              $assemblyVersionRegex = "\\[assembly: AssemblyVersion\\(\"(.*)\"\\)\\]"
+
+              if ($fileContent -match $assemblyVersionRegex) {
+                $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
+                $fileContent -replace $assemblyVersionRegex, $assemblyVersion.ToString() | Set-Content $($_.FullName) -NoNewline
+                Write-Host "Updated $_.Name"
+              }
+            }
           }
         }
 
@@ -133,7 +149,8 @@ runs:
 
           git status
           git pull
-          git add '**/Packages/**/package.json'
+          git add '**/packages/**/package.json'
+          git add '**/packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
