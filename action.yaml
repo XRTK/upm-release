@@ -72,7 +72,6 @@ runs:
 
         if ($lastRelease -match "fatal") {
           $lastRelease = "0.0.1"
-          $LASTEXITCODE = 0
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
@@ -123,6 +122,7 @@ runs:
 
         if ($isPreview -eq 'true') {
           echo "skip version push"
+          exit 0
         } else {
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
