@@ -49,6 +49,7 @@ runs:
     - uses: actions/checkout@v2
       with:
         ref: ${{ steps.target.outputs.branch }}
+        token: ${{ inputs.github-pat }}
         fetch-depth: 0
 
     - id: validate-version
@@ -125,6 +126,8 @@ runs:
           echo "skip version push"
           exit 0
         } else {
+          gh auth status
+
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
 
