@@ -9,7 +9,7 @@ Part of the [Mixed Reality Toolkit (XRTK)](https://github.com/XRTK) open source 
 ## How to use
 
 1. Setup GitHub repository or organization secrets:
-  - UPM_CREDENTIALS - npm/upm token used to sign into the server or service.
+  - UPM_TOKEN - npm token used to sign into the server or service.
   - GITHUB_PAT - A Personal Access Token for GitHub to make commits and publish the release.
 
 ```yaml
@@ -24,7 +24,7 @@ jobs:
           upm-username: 'xrtk-build-bot'
           upm-email: 'xrtk-build-bot@xrtk.io'
           upm-server-address: 'http://upm.xrtk.io:4873'
-          upm-auth-token: '${{ secrets.UPM_CREDENTIALS }}'
+          upm-auth-token: '${{ secrets.UPM_TOKEN }}'
           github-username: 'XRTK-Build-Bot'
           github-pat: '${{ secrets.GITHUB_PAT }}'
           github-token: '${{ secrets.GITHUB_TOKEN }}'
