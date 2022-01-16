@@ -120,7 +120,7 @@ runs:
         Write-Host "::set-output name=upm-package-version::$version"
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
-        if ($isPreview -eq 'true') {
+        if (($isPreview -eq 'true') -or ($version -eq $lastRelease)) {
           echo "skip version push"
           exit 0
         } else {
