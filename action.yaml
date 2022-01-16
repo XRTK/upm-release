@@ -71,7 +71,7 @@ runs:
         try {
           $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
         } catch {
-          $lastRelease = [System.Management.Automation.SemanticVersion]::New(0, 0, 1)
+          $lastRelease = "0.0.1"
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
