@@ -57,7 +57,7 @@ runs:
       run: |
         $branch = '${{ steps.target.outputs.branch }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
-        $packageFile = '**/packages/**/package.json'
+        $packageFile = '**/Packages/**/package.json'
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$packageFile`""
@@ -118,7 +118,7 @@ runs:
             Write-Host Publishing Version: $packageInfo.version
           }
 
-          Get-ChildItem -Path "**/packages/com.xrtk.gltf/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+          Get-ChildItem -Path "**/Packages/com.xrtk.gltf/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
               $fileContent = Get-Content $($_.FullName) -Raw
 
@@ -149,8 +149,8 @@ runs:
 
           git status
           git pull
-          git add '**/packages/**/package.json'
-          git add '**/packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
+          git add '**/Packages/**/package.json'
+          git add '**/Packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
