@@ -57,6 +57,13 @@ runs:
       run: |
         $branch = '${{ steps.target.outputs.branch }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
+
+        $readmePath = (Resolve-Path '**/Packages/**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $licensePath = (Resolve-Path '**/Packages/**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+
+        Copy-Item 'README.md' -Destination $readmePath
+        Copy-Item 'LICENSE*' -Destination $licensePath
+
         $packageFile = '**/Packages/**/package.json'
 
         if ( -not (Test-Path -Path $packageFile) ) {
@@ -151,6 +158,8 @@ runs:
           git pull
           git add '**/Packages/**/package.json'
           git add '**/Packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
+          git add '**/Packages/**/README.md'
+          git add '**/Packages/**/LICENSE*'
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
