@@ -60,9 +60,10 @@ runs:
 
         $readmePath = (Resolve-Path '**/Packages/**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
         $licensePath = (Resolve-Path '**/Packages/**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $license = (Resolve-Path 'LICENSE*').ToString()
 
         Copy-Item 'README.md' -Destination $readmePath
-        Copy-Item 'LICENSE*' -Destination $licensePath
+        Copy-Item $license -Destination $licensePath
 
         $packageFile = '**/Packages/**/package.json'
 
