@@ -145,12 +145,10 @@ runs:
         Write-Host "::set-output name=upm-package-version::$version"
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
-        if (($isPreview -eq 'true') -or ($version -eq $lastRelease)) {
+        if ($version -eq $lastRelease) {
           echo "skip version push"
           exit 0
         } else {
-          gh auth status
-
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
 
