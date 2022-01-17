@@ -60,7 +60,7 @@ runs:
         $packageFile = '**/packages/**/package.json'
 
         if ( -not (Test-Path -Path $packageFile) ) {
-          Write-Error "Failed to find a valid project manifest at `"$versionFile`""
+          Write-Error "Failed to find a valid project manifest at `"$packageFile`""
           exit 1
         }
 
