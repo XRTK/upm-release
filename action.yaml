@@ -123,7 +123,7 @@ runs:
               $fileContent = Get-Content $($_.FullName) -Raw
 
               # update assembly version
-              $assemblyVersionRegex = "\\[assembly: AssemblyVersion\\(\"(.*)\"\\)\\]"
+              $assemblyVersionRegex = "\[assembly: AssemblyVersion\(""(.*)""\)\]"
 
               if ($fileContent -match $assemblyVersionRegex) {
                 $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
