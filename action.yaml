@@ -52,6 +52,29 @@ runs:
         ref: ${{ steps.target.outputs.branch }}
         fetch-depth: 0
 
+    - uses: actions/setup-node@v2
+      with:
+        registry-url: '${{ inputs.upm-server-address }}'
+
+    - name: upm publish dry run
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        cd $packageDir
+
+        npm publish --registry=${{ inputs.upm-server-address }} --dry-run
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        exit $exit
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+
     - id: validate-version
       name: Validate Package Version
       run: |
@@ -191,25 +214,18 @@ runs:
       env:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
-    - uses: actions/setup-node@v2
-      with:
-        node-version: '16.x'
-        registry-url: '${{ inputs.upm-server-address }}'
-        always-auth: true
-
     - name: upm publish
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
+
         npm publish --registry=${{ inputs.upm-server-address }}
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
           $exit = $LASTEXITCODE
         }
-
-        npm logout --registry=${{ inputs.upm-server-address }}
 
         exit $exit
       working-directory: ${{ github.workspace }}
