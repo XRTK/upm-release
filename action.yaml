@@ -195,6 +195,7 @@ runs:
       with:
         node-version: '16.x'
         registry-url: '${{ inputs.upm-server-address }}'
+        always-auth: true
 
     - name: upm publish
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
