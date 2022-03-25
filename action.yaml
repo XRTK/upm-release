@@ -50,11 +50,13 @@ runs:
       with:
         token: ${{ inputs.github-pat }}
         ref: ${{ steps.target.outputs.branch }}
-        fetch-depth: 0
+        fetch-depth: 1
 
     - uses: actions/setup-node@v2
       with:
         registry-url: '${{ inputs.upm-server-address }}'
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
 
     - name: upm publish dry run
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
