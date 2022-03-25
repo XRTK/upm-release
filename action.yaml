@@ -62,7 +62,9 @@ runs:
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
+        Write-Host "::group:: test publish to registry"
         npm publish --registry=${{ inputs.upm-server-address }} --dry-run
+        Write-Host "::endgroup::"
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
@@ -185,6 +187,7 @@ runs:
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
+          $exit = 0
 
           if ($LASTEXITCODE -gt 0) {
             $exit = $LASTEXITCODE
@@ -219,8 +222,9 @@ runs:
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
-
+        Write-Host "::group:: publish to registry"
         npm publish --registry=${{ inputs.upm-server-address }}
+        Write-Host "::endgroup::"
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
