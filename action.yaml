@@ -63,7 +63,7 @@ runs:
         cd $packageDir
 
         Write-Host "::group:: test publish to registry"
-        npm publish --registry=${{ inputs.upm-server-address }} --dry-run
+        npm publish --registry=${{ inputs.upm-server-address }}
         Write-Host "::endgroup::"
         $exit = 0
 
