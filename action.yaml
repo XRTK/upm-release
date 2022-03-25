@@ -222,6 +222,7 @@ runs:
       run: |
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
+
         Write-Host "::group:: publish to registry"
         npm publish --registry=${{ inputs.upm-server-address }}
         Write-Host "::endgroup::"
