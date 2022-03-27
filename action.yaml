@@ -61,8 +61,7 @@ runs:
     - name: upm authentication
       run: |
         cat /home/runner/work/_temp/.npmrc
-        echo "//${{ inputs.upm-server-address }}/:_authToken=${{ inputs.upm-auth-token }}" > ~/.npmrc
-        sudo npm install -g npm@latest
+        sudo npm install -g npm@8.5.5
       shell: pwsh
 
     - name: upm publish dry run
@@ -72,7 +71,7 @@ runs:
         cd $packageDir
 
         Write-Host "::group:: test publish to registry"
-        npm publish --registry=${{ inputs.upm-server-address }}
+        npm publish
         Write-Host "::endgroup::"
         $exit = 0
 
@@ -85,7 +84,6 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
-        NPM_CONFIG_USERCONFIG: ~/.npmrc
 
     - id: validate-version
       name: Validate Package Version
@@ -234,7 +232,7 @@ runs:
         cd $packageDir
 
         Write-Host "::group:: publish to registry"
-        npm publish --registry=${{ inputs.upm-server-address }}
+        npm publish
         Write-Host "::endgroup::"
         $exit = 0
 
@@ -247,4 +245,3 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
-        NPM_CONFIG_USERCONFIG: ~/.npmrc
