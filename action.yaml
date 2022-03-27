@@ -83,6 +83,7 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+        NPM_CONFIG_USERCONFIG: ~/.npmrc
 
     - id: validate-version
       name: Validate Package Version
@@ -244,3 +245,4 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+        NPM_CONFIG_USERCONFIG: ~/.npmrc
