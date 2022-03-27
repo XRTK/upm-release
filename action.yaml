@@ -60,6 +60,7 @@ runs:
 
     - name: upm authentication
       run: |
+        cat /home/runner/work/_temp/.npmrc
         echo "//${{ inputs.upm-server-address }}/:_authToken=${{ inputs.upm-auth-token }}" > ~/.npmrc
         sudo npm install -g npm@latest
       shell: pwsh
