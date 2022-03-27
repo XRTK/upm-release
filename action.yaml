@@ -58,12 +58,6 @@ runs:
         always-auth: true
         check-latest: true
 
-    - name: upm authentication
-      run: |
-        cat /home/runner/work/_temp/.npmrc
-        sudo npm install -g npm@8.5.5
-      shell: pwsh
-
     - name: upm publish dry run
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
@@ -71,7 +65,7 @@ runs:
         cd $packageDir
 
         Write-Host "::group:: test publish to registry"
-        npm publish
+        npm publish --dry-run
         Write-Host "::endgroup::"
         $exit = 0
 
