@@ -66,10 +66,19 @@ runs:
     - name: upm publish dry run
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
+        npm whoami
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        exit $exit
+
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
-        Write-Host "::group:: test publish to registry"
+        Write-Host "::group::test publish to registry"
         npm publish --dry-run
         Write-Host "::endgroup::"
         $exit = 0
@@ -230,7 +239,7 @@ runs:
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
-        Write-Host "::group:: publish to registry"
+        Write-Host "::group::publish to registry"
         npm publish
         Write-Host "::endgroup::"
         $exit = 0
