@@ -1,0 +1,255 @@
+name: 'UPM Release (XRTK)'
+description: 'An atomic GitHub action to publish UPM (unity package manager) packages.'
+inputs:
+  upm-username:
+    description: 'The user name doing the publishing.'
+    required: true
+    default: ''
+  upm-email:
+    description: 'The email address of the user doing the publishing.'
+    required: true
+    default: ''
+  upm-auth-token:
+    description: 'Auth Token for NPM/UPM server.'
+    required: true
+    default: ''
+  github-pat:
+    description: 'A GitHub Personal Access Token (PAT).'
+    required: true
+    default: ''
+  github-token:
+    description: 'A Github actions token.'
+    required: true
+    default: ''
+  github-username:
+    description: 'A username to sign the commits to in your repository. Defaults to the name of the person or app that initiated the workflow.'
+    required: false
+    default: '${{ github.actor }}'
+  upm-server-address:
+    description: 'The url of the upm/npm server. (Defaults to NPM registry)'
+    required: false
+    default: 'https://registry.npmjs.org'
+
+runs:
+  using: "composite"
+  steps:
+    - id: target
+      name: Set target branch
+      run: |
+        $isPreview = '${{ github.base_ref == 'main' }}'
+        if ($isPreview -eq 'true') {
+          $branch = '${{ github.head_ref }}'
+        } else {
+          $branch = '${{ github.ref }}'
+        }
+
+        Write-Host "::set-output name=branch::$branch"
+      shell: pwsh
+
+    - uses: actions/checkout@v2
+      with:
+        token: ${{ inputs.github-pat }}
+        ref: ${{ steps.target.outputs.branch }}
+        fetch-depth: 1
+
+    - uses: actions/setup-node@v2
+      with:
+        registry-url: '${{ inputs.upm-server-address }}'
+        always-auth: true
+        check-latest: true
+
+    - name: update npm
+      run: |
+        sudo npm install -g npm@8.5.5
+      shell: pwsh
+
+    - name: upm publish dry run
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        npm whoami
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        exit $exit
+
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        cd $packageDir
+
+        Write-Host "::group::test publish to registry"
+        npm publish --dry-run
+        Write-Host "::endgroup::"
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        exit $exit
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+
+    - id: validate-version
+      name: Validate Package Version
+      run: |
+        $branch = '${{ steps.target.outputs.branch }}'
+        $isPreview = '${{ github.base_ref == 'main' }}'
+
+        $readmePath = (Resolve-Path '**/Packages/**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $licensePath = (Resolve-Path '**/Packages/**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $license = (Resolve-Path 'LICENSE*').ToString()
+
+        Copy-Item 'README.md' -Destination $readmePath
+        Copy-Item $license -Destination $licensePath
+
+        $packageFile = '**/Packages/**/package.json'
+
+        if ( -not (Test-Path -Path $packageFile) ) {
+          Write-Error "Failed to find a valid project manifest at `"$packageFile`""
+          exit 1
+        }
+
+        $packageInfo = (Get-Content $packageFile -Raw) | ConvertFrom-Json
+        Write-Host "Detected Project Version:" $packageInfo.version
+
+        $env:GIT_REDIRECT_STDERR = '2>&1'
+
+        $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
+
+        if ($lastRelease -match "fatal") {
+          $lastRelease = "0.0.1"
+        }
+
+        $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
+        $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]$lastRelease
+
+        if ([string]::IsNullOrEmpty($lastRelease)) {
+          Write-Host "New Release needed $packageSemVer"
+        } else {
+          Write-Host "Last Release $lastReleaseSemVer"
+        }
+
+        if ($isPreview -eq 'true') {
+          if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -or ($packageSemVer.PreReleaseLabel -match '(?<preview>\d+)')) {
+            $preview = ([int]$Matches.preview) + 1
+          } else {
+            if ($packageSemVer -le $lastReleaseSemVer) {
+              $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
+              $packageSemVer = $lastReleaseSemVer
+            }
+
+            $preview = 1
+          }
+
+          $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch, "preview.$preview")
+          Write-Host Preview build calculated: $newPackageSemVer
+          $packageInfo.version = $newPackageSemVer.ToString()
+        } else {
+          if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -and
+              ($lastReleaseSemVer.Patch -eq $packageSemVer.Patch)) {
+            $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
+            $lastRelease = $newPackageSemVer.ToString()
+          } else {
+            $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
+          }
+
+          Write-Host Release build calculated: $newPackageSemVer
+
+          if ($newPackageSemVer -gt $packageSemVer) {
+            $packageSemVer = $newPackageSemVer
+            Write-Host $packageInfo.version -> $packageSemVer.ToString()
+            $packageInfo.version = $packageSemVer.ToString()
+          } else {
+            Write-Host Publishing Version: $packageInfo.version
+          }
+
+          Get-ChildItem -Path "**/Packages/com.xrtk.gltf/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+            Get-ChildItem -Path $_ -File | ForEach-Object -Process {
+              $fileContent = Get-Content $($_.FullName) -Raw
+
+              # update assembly version
+              $assemblyVersionRegex = "\[assembly: AssemblyVersion\(""(.*)""\)\]"
+
+              if ($fileContent -match $assemblyVersionRegex) {
+                $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
+                $fileContent -replace $assemblyVersionRegex, $assemblyVersion.ToString() | Set-Content $($_.FullName) -NoNewline
+                Write-Host "Updated $_.Name"
+              }
+            }
+          }
+        }
+
+        $version = $packageInfo.version
+        Write-Host "::set-output name=upm-package-version::$version"
+        $packageInfo | ConvertTo-Json | Set-Content $packageFile
+
+        if ($version -eq $lastRelease) {
+          echo "skip version push"
+          exit 0
+        } else {
+          git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
+          git config user.name "${{ inputs.github-username }}"
+
+          git status
+          git pull
+          git add '**/Packages/**/package.json'
+          git add '**/Packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
+          git add '**/Packages/**/README.md'
+          git add '**/Packages/**/LICENSE*'
+          git status
+          git commit -m "[skip ci] $version"
+          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
+          $exit = 0
+
+          if ($LASTEXITCODE -gt 0) {
+            $exit = $LASTEXITCODE
+          }
+
+          git status
+          exit $exit
+        }
+      shell: pwsh
+      working-directory: ${{ github.workspace }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_PAT: ${{ inputs.github-pat }}
+
+    - name: upm subtree split
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = $packageDir.replace('${{ github.workspace }}/','')
+        Write-Host "::group:: $packageDir subtree split"
+        git subtree split --prefix="$packageDir" -b upm
+        Write-Host "::endgroup::"
+        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        GITHUB_PAT: ${{ inputs.github-pat }}
+
+    - name: upm publish
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      run: |
+        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        cd $packageDir
+
+        Write-Host "::group::publish to registry"
+        npm publish
+        Write-Host "::endgroup::"
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        exit $exit
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
