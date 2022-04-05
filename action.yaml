@@ -224,7 +224,7 @@ runs:
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
         Write-Host "::group:: $packageDir subtree split"
-        git fetch -all
+        git fetch --all
         git status
         git subtree split --prefix="$packageDir" -b upm
         Write-Host "::endgroup::"
