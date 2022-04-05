@@ -167,7 +167,7 @@ runs:
             Write-Host Publishing Version: $packageInfo.version
           }
 
-          Get-ChildItem -Path "**/Packages/com.xrtk.gltf/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+          Get-ChildItem -Path "**/Packages/com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
               $fileContent = Get-Content $($_.FullName) -Raw
 
