@@ -224,12 +224,10 @@ runs:
         $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
         Write-Host "::group:: $packageDir subtree split"
-        git fetch --all
-        git status
         git subtree split --prefix="$packageDir" -b upm
         Write-Host "::endgroup::"
-        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
-        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
+        git tag '${{ steps.validate-version.outputs.upm-package-version }}'
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git '${{ steps.validate-version.outputs.upm-package-version }}'
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
