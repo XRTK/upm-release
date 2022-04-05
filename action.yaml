@@ -226,8 +226,8 @@ runs:
         Write-Host "::group:: $packageDir subtree split"
         git subtree split --prefix="$packageDir" -b upm
         Write-Host "::endgroup::"
-        git tag '${{ steps.validate-version.outputs.upm-package-version }}'
-        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git '${{ steps.validate-version.outputs.upm-package-version }}'
+        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
