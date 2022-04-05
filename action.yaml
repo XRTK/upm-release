@@ -29,6 +29,10 @@ inputs:
     description: 'The url of the upm/npm server. (Defaults to NPM registry)'
     required: false
     default: 'https://registry.npmjs.org'
+  package-root:
+    description: 'The project package root directory. (Defaults to **/Packages/)'
+    required: false
+    default: '**/Packages/'
 
 runs:
   using: "composite"
@@ -75,7 +79,7 @@ runs:
 
         exit $exit
 
-        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
         Write-Host "::group::test publish to registry"
@@ -99,14 +103,14 @@ runs:
         $branch = '${{ steps.target.outputs.branch }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
 
-        $readmePath = (Resolve-Path '**/Packages/**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
-        $licensePath = (Resolve-Path '**/Packages/**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $readmePath = (Resolve-Path '${{ inputs.package-root }}**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $licensePath = (Resolve-Path '${{ inputs.package-root }}**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
         $license = (Resolve-Path 'LICENSE*').ToString()
 
         Copy-Item 'README.md' -Destination $readmePath
         Copy-Item $license -Destination $licensePath
 
-        $packageFile = '**/Packages/**/package.json'
+        $packageFile = '${{ inputs.package-root }}**/package.json'
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$packageFile`""
@@ -167,7 +171,7 @@ runs:
             Write-Host Publishing Version: $packageInfo.version
           }
 
-          Get-ChildItem -Path "**/Packages/com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+          Get-ChildItem -Path "${{ inputs.package-root }}com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
               $fileContent = Get-Content $($_.FullName) -Raw
 
@@ -196,10 +200,10 @@ runs:
 
           git status
           git pull
-          git add '**/Packages/**/package.json'
-          git add '**/Packages/${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
-          git add '**/Packages/**/README.md'
-          git add '**/Packages/**/LICENSE*'
+          git add '${{ inputs.package-root }}**/package.json'
+          git add '${{ inputs.package-root }}${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
+          git add '${{ inputs.package-root }}**/README.md'
+          git add '${{ inputs.package-root }}**/LICENSE*'
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
@@ -221,7 +225,7 @@ runs:
     - name: upm subtree split
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
-        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
         Write-Host "::group:: $packageDir subtree split"
         git subtree split --prefix="$packageDir" -b upm
@@ -236,7 +240,7 @@ runs:
     - name: upm publish
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
-        $packageDir = Get-Item -Path "**/Packages/com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
         Write-Host "::group::publish to registry"
