@@ -50,7 +50,7 @@ runs:
       with:
         token: ${{ inputs.github-pat }}
         ref: ${{ steps.target.outputs.branch }}
-        fetch-depth: 1
+        fetch-depth: 0
 
     - uses: actions/setup-node@v2
       with:
