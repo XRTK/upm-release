@@ -177,11 +177,12 @@ runs:
 
               # update assembly version
               $assemblyVersionRegex = "\[assembly: AssemblyVersion\(""(.*)""\)\]"
+              $newAssemblyVersion = "\[assembly: AssemblyVersion\(""$assemblyVersion.ToString()""\)\]"
 
               if ($fileContent -match $assemblyVersionRegex) {
                 $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
-                $fileContent -replace $assemblyVersionRegex, $assemblyVersion.ToString() | Set-Content $($_.FullName) -NoNewline
-                Write-Host "Updated $_.Name"
+                $fileContent -replace $assemblyVersionRegex, $newAssemblyVersion | Set-Content $($_.FullName) -NoNewline
+                echo Updated $_.Name
               }
             }
           }
