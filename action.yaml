@@ -177,7 +177,7 @@ runs:
 
               # update assembly version
               $assemblyVersionRegex = "\[assembly: AssemblyVersion\(""(.*)""\)\]"
-              $newAssemblyVersion = "\[assembly: AssemblyVersion\(""$assemblyVersion.ToString()""\)\]"
+              $newAssemblyVersion = "[assembly: AssemblyVersion(""$assemblyVersion"")]"
 
               if ($fileContent -match $assemblyVersionRegex) {
                 $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
