@@ -152,7 +152,6 @@ runs:
           if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -and
               ($lastReleaseSemVer.Patch -eq $packageSemVer.Patch)) {
             $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
-            $lastRelease = $newPackageSemVer.ToString()
           } else {
             $newPackageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
           }
@@ -163,9 +162,9 @@ runs:
             $packageSemVer = $newPackageSemVer
             Write-Host $packageInfo.version -> $packageSemVer.ToString()
             $packageInfo.version = $packageSemVer.ToString()
-          } else {
-            Write-Host Publishing Version: $packageInfo.version
           }
+
+          Write-Host Updating Assembly Versions $lastRelease -> $packageInfo.version
 
           Get-ChildItem -Path "${{ inputs.package-root }}com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
@@ -178,7 +177,7 @@ runs:
                 $assemblyVersion = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch)
                 $newAssemblyVersion = "[assembly: AssemblyVersion(""$assemblyVersion"")]"
                 $fileContent -replace $assemblyVersionRegex, $newAssemblyVersion | Set-Content $($_.FullName) -NoNewline
-                echo Updated $_.Name
+                echo Updated $_.FullName
               }
             }
           }
