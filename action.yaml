@@ -58,14 +58,10 @@ runs:
 
     - uses: actions/setup-node@v3
       with:
+        node-version: 16
         registry-url: '${{ inputs.upm-server-address }}'
         always-auth: true
         check-latest: true
-
-    - name: update npm
-      run: |
-        sudo npm install -g npm@8.5.5
-      shell: pwsh
 
     - name: upm publish dry run
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
