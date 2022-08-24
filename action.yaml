@@ -56,7 +56,7 @@ runs:
         ref: ${{ steps.target.outputs.branch }}
         fetch-depth: 0
 
-    - uses: actions/setup-node@v2
+    - uses: actions/setup-node@v3
       with:
         registry-url: '${{ inputs.upm-server-address }}'
         always-auth: true
