@@ -39,6 +39,7 @@ runs:
   steps:
     - id: target
       name: Set target branch
+      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       run: |
         $isPreview = '${{ github.base_ref == 'main' }}'
 
@@ -52,6 +53,7 @@ runs:
       shell: pwsh
 
     - uses: actions/checkout@v3
+      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
         token: ${{ inputs.github-pat }}
         ref: ${{ env.BRANCH }}
@@ -218,20 +220,13 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm subtree split
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
       run: |
-        $isUpmBranch = '${{ github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}'
-
-        if ($isUpmBranch -eq 'false')
-        {
-          $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
-          $packageDir = $packageDir.replace('${{ github.workspace }}/','')
-          Write-Host "::group:: $packageDir subtree split"
-          git subtree split --prefix="$packageDir" -b upm
-          Write-Host "::endgroup::"
-        }
-
-        git tag '${{ env.VERSION }}' upm
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+        $packageDir = $packageDir.replace('${{ github.workspace }}/','')
+        Write-Host "::group:: $packageDir subtree split"
+        git subtree split --prefix="$packageDir" -b upm
+        Write-Host "::endgroup::"
         git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
       working-directory: ${{ github.workspace }}
       shell: pwsh
@@ -258,3 +253,12 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+
+    - name: tag version
+      run: |
+        git tag '${{ env.VERSION }}' upm
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}'
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        GITHUB_PAT: ${{ inputs.github-pat }}
