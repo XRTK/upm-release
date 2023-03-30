@@ -100,7 +100,7 @@ runs:
         $isPreview = '${{ github.base_ref == 'main' }}'
 
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
-        $packageFile = (Resolve-Path '$packageDir/package.json' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
+        $packageFile = (Resolve-Path "$packageDir/package.json" | Where-Object { $_.Path -notmatch'.meta' }).ToString()
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$packageFile`""
@@ -160,7 +160,9 @@ runs:
 
           Write-Host Updating Assembly Versions $lastRelease -> $packageInfo.version
 
-          Get-ChildItem -Path "${{ inputs.package-root }}com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+          $updatedFiles = @()
+
+          Get-ChildItem -Path "$packageDir/com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
               $fileContent = Get-Content $($_.FullName) -Raw
 
@@ -172,6 +174,7 @@ runs:
                 $newAssemblyVersion = "[assembly: AssemblyVersion(""$assemblyVersion"")]"
                 $fileContent -replace $assemblyVersionRegex, $newAssemblyVersion | Set-Content $($_.FullName) -NoNewline
                 echo Updated $_.FullName
+                $updatedFiles += $_.FullName
               }
             }
           }
@@ -190,10 +193,12 @@ runs:
 
           git status
           git pull
-          git add '${{ inputs.package-root }}**/package.json'
-          git add '${{ inputs.package-root }}${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
-          git add '${{ inputs.package-root }}**/README.md'
-          git add '${{ inputs.package-root }}**/LICENSE*'
+          git add $packageFile
+
+          foreach ($file in $updatedFiles) {
+            git add $file
+          }
+
           git status
           git commit -m "[skip ci] $version"
           git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
