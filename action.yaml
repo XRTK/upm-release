@@ -32,7 +32,7 @@ inputs:
   package-root:
     description: 'The project package root directory. (Defaults to **/Packages/)'
     required: false
-    default: '**/Packages/'
+    default: '**/Packages/com.*'
 
 runs:
   using: "composite"
@@ -41,19 +41,20 @@ runs:
       name: Set target branch
       run: |
         $isPreview = '${{ github.base_ref == 'main' }}'
+
         if ($isPreview -eq 'true') {
           $branch = '${{ github.head_ref }}'
         } else {
           $branch = '${{ github.ref }}'
         }
 
-        Write-Host "::set-output name=branch::$branch"
+        "BRANCH=$branch" >> $env:GITHUB_ENV
       shell: pwsh
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         token: ${{ inputs.github-pat }}
-        ref: ${{ steps.target.outputs.branch }}
+        ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
     - uses: actions/setup-node@v3
@@ -75,7 +76,8 @@ runs:
 
         exit $exit
 
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+        Write-Host "Package Directory: $packageDir"
         cd $packageDir
 
         Write-Host "::group::test publish to registry"
@@ -96,17 +98,11 @@ runs:
     - id: validate-version
       name: Validate Package Version
       run: |
-        $branch = '${{ steps.target.outputs.branch }}'
+        $branch = '${{ env.BRANCH }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
 
-        $readmePath = (Resolve-Path '${{ inputs.package-root }}**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
-        $licensePath = (Resolve-Path '${{ inputs.package-root }}**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
-        $license = (Resolve-Path 'LICENSE*').ToString()
-
-        Copy-Item 'README.md' -Destination $readmePath
-        Copy-Item $license -Destination $licensePath
-
-        $packageFile = '${{ inputs.package-root }}**/package.json'
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+        $packageFile = (Resolve-Path '$packageDir/package.json' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$packageFile`""
@@ -184,7 +180,7 @@ runs:
         }
 
         $version = $packageInfo.version
-        Write-Host "::set-output name=upm-package-version::$version"
+        "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
         if ($version -eq $lastRelease) {
@@ -226,8 +222,8 @@ runs:
         Write-Host "::group:: $packageDir subtree split"
         git subtree split --prefix="$packageDir" -b upm
         Write-Host "::endgroup::"
-        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
-        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
+        git tag '${{ env.VERSION }}' upm
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
