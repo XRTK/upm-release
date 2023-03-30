@@ -65,7 +65,7 @@ runs:
         check-latest: true
 
     - name: upm publish dry run
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || ${{ github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
         npm whoami
         $exit = 0
@@ -230,7 +230,7 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm publish
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || ${{ github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
         $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
         cd $packageDir
