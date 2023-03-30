@@ -74,8 +74,6 @@ runs:
           $exit = $LASTEXITCODE
         }
 
-        exit $exit
-
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         Write-Host "Package Directory: $packageDir"
         cd $packageDir
@@ -215,13 +213,19 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm subtree split
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
-        $packageDir = $packageDir.replace('${{ github.workspace }}/','')
-        Write-Host "::group:: $packageDir subtree split"
-        git subtree split --prefix="$packageDir" -b upm
-        Write-Host "::endgroup::"
+        $isUpmBranch = '${{ github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}'
+
+        if ($isUpmBranch -eq 'false')
+        {
+          $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+          $packageDir = $packageDir.replace('${{ github.workspace }}/','')
+          Write-Host "::group:: $packageDir subtree split"
+          git subtree split --prefix="$packageDir" -b upm
+          Write-Host "::endgroup::"
+        }
+
         git tag '${{ env.VERSION }}' upm
         git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
       working-directory: ${{ github.workspace }}
@@ -232,7 +236,7 @@ runs:
     - name: upm publish
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
         Write-Host "::group::publish to registry"
