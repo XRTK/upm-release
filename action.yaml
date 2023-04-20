@@ -197,6 +197,7 @@ runs:
         git config user.name "${{ inputs.github-username }}"
 
         git status
+        git checkout $branch
         git pull
         git add $packageFile
 
@@ -228,7 +229,9 @@ runs:
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
         Write-Host "::group:: $packageDir subtree split"
-        git subtree split --prefix="$packageDir" -b upm
+        git subtree split --prefix="$packageDir" -b upm-split
+        git checkout upm
+        git rebase upm-split
         Write-Host "::endgroup::"
         git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
       working-directory: ${{ github.workspace }}
