@@ -113,7 +113,7 @@ runs:
         Write-Host "Detected Project Version:" $packageInfo.version
 
         $env:GIT_REDIRECT_STDERR = '2>&1'
-
+        git fetch --all --tags
         $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
 
         if ($lastRelease -match "fatal") {
