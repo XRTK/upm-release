@@ -33,6 +33,10 @@ inputs:
     description: 'The project package root directory. (Defaults to **/Packages/)'
     required: false
     default: '**/Packages/com.*'
+  preview:
+    description: 'Is this package in preview?'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
@@ -101,7 +105,7 @@ runs:
       run: |
         # validate version
         $branch = '${{ env.BRANCH }}'
-        $isPreview = '${{ github.base_ref == 'main' }}'
+        $isPreview = '${{ github.base_ref == 'main' || inputs.preview == 'true' }}'
 
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         $packageFile = (Resolve-Path "$packageDir/package.json" | Where-Object { $_.Path -notmatch'.meta' }).ToString()
@@ -132,15 +136,15 @@ runs:
           Write-Host "Last Release $lastReleaseSemVer"
         }
 
+        if ($packageSemVer -le $lastReleaseSemVer) {
+          $packageSemVer = $lastReleaseSemVer
+        }
+
         if ($isPreview -eq 'true') {
           if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -or ($packageSemVer.PreReleaseLabel -match '(?<preview>\d+)')) {
             $preview = ([int]$Matches.preview) + 1
           } else {
-            if ($packageSemVer -le $lastReleaseSemVer) {
-              $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
-              $packageSemVer = $lastReleaseSemVer
-            }
-
+            $packageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
             $preview = 1
           }
 
@@ -185,37 +189,32 @@ runs:
           }
         }
 
-        if ($version -eq $lastRelease) {
-          echo "skip version push"
-          exit 0
-        } else {
-          $version = $packageInfo.version
-          "VERSION=$version" >> $env:GITHUB_ENV
-          $packageInfo | ConvertTo-Json | Set-Content $packageFile
+        $version = $packageInfo.version
+        "VERSION=$version" >> $env:GITHUB_ENV
+        $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
-          git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
-          git config user.name "${{ inputs.github-username }}"
+        git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
+        git config user.name "${{ inputs.github-username }}"
 
-          git status
-          git pull
-          git add $packageFile
+        git status
+        git pull
+        git add $packageFile
 
-          foreach ($file in $updatedFiles) {
-            git add $file
-          }
-
-          git status
-          git commit -m "[skip ci] $version"
-          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
-          $exit = 0
-
-          if ($LASTEXITCODE -gt 0) {
-            $exit = $LASTEXITCODE
-          }
-
-          git status
-          exit $exit
+        foreach ($file in $updatedFiles) {
+          git add $file
         }
+
+        git status
+        git commit -m "[skip ci] $version"
+        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        git status
+        exit $exit
       shell: pwsh
       working-directory: ${{ github.workspace }}
       env:
