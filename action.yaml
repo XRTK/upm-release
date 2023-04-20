@@ -69,6 +69,7 @@ runs:
     - name: upm publish dry run
       if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
+        # upm publish dry run
         npm whoami
         $exit = 0
 
@@ -98,6 +99,7 @@ runs:
     - id: validate-version
       name: Validate Package Version
       run: |
+        # validate version
         $branch = '${{ env.BRANCH }}'
         $isPreview = '${{ github.base_ref == 'main' }}'
 
@@ -183,14 +185,14 @@ runs:
           }
         }
 
-        $version = $packageInfo.version
-        "VERSION=$version" >> $env:GITHUB_ENV
-        $packageInfo | ConvertTo-Json | Set-Content $packageFile
-
         if ($version -eq $lastRelease) {
           echo "skip version push"
           exit 0
         } else {
+          $version = $packageInfo.version
+          "VERSION=$version" >> $env:GITHUB_ENV
+          $packageInfo | ConvertTo-Json | Set-Content $packageFile
+
           git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
           git config user.name "${{ inputs.github-username }}"
 
@@ -221,8 +223,9 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm subtree split
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && env.VERSION != '' }}
       run: |
+        # upm subtree split
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         $packageDir = $packageDir.replace('${{ github.workspace }}/','')
         Write-Host "::group:: $packageDir subtree split"
@@ -235,8 +238,9 @@ runs:
         GITHUB_PAT: ${{ inputs.github-pat }}
 
     - name: upm publish
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
+      if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm') && env.VERSION != '' }}
       run: |
+        # upm publish
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
@@ -256,6 +260,7 @@ runs:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
 
     - name: tag version
+      if: ${{ env.VERSION != '' }}
       run: |
         git tag '${{ env.VERSION }}' upm
         git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}'
