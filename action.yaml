@@ -117,7 +117,8 @@ runs:
         $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
 
         if ($lastRelease -match "fatal") {
-          $lastRelease = "0.0.1"
+          Write-Error $lastRelease
+          exit 1
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
