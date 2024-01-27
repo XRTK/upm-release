@@ -188,6 +188,9 @@ runs:
         "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
+        git config user.email "github-actions@github.com"
+        git config user.name "github-actions"
+
         git status
         git checkout $branch
         git pull
