@@ -213,7 +213,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
 
-    - uses: RageAgainstThePixel/upm-subtree-split@v1.0.1
+    - uses: RageAgainstThePixel/upm-subtree-split@v1.1
       if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && env.VERSION != '' }}
       with:
         package-root: ${{ inputs.package-root }}
