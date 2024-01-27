@@ -55,7 +55,7 @@ runs:
     - uses: actions/checkout@v3
       if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
-        token: ${{ inputs.github-github-token }}
+        token: ${{ inputs.github-token }}
         ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
