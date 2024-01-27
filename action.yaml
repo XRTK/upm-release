@@ -13,10 +13,6 @@ inputs:
     description: 'Auth Token for NPM/UPM server.'
     required: true
     default: ''
-  github-pat:
-    description: 'A GitHub Personal Access Token (PAT).'
-    required: true
-    default: ''
   github-token:
     description: 'A Github actions token.'
     required: true
@@ -32,40 +28,47 @@ inputs:
   package-root:
     description: 'The project package root directory. (Defaults to **/Packages/)'
     required: false
-    default: '**/Packages/'
+    default: '**/Packages/com.*'
+  preview:
+    description: 'Is this package in preview?'
+    required: false
+    default: 'false'
 
 runs:
   using: "composite"
   steps:
     - id: target
       name: Set target branch
+      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       run: |
         $isPreview = '${{ github.base_ref == 'main' }}'
+
         if ($isPreview -eq 'true') {
           $branch = '${{ github.head_ref }}'
         } else {
           $branch = '${{ github.ref }}'
         }
 
-        Write-Host "::set-output name=branch::$branch"
+        "BRANCH=$branch" >> $env:GITHUB_ENV
       shell: pwsh
 
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
-        token: ${{ inputs.github-pat }}
-        ref: ${{ steps.target.outputs.branch }}
+        token: ${{ inputs.github-token }}
+        ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
-    - uses: actions/setup-node@v3
+    - uses: actions/setup-node@v4.0.1
       with:
-        node-version: 16
         registry-url: '${{ inputs.upm-server-address }}'
         always-auth: true
         check-latest: true
 
     - name: upm publish dry run
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm' }}
       run: |
+        # upm publish dry run
         npm whoami
         $exit = 0
 
@@ -73,9 +76,8 @@ runs:
           $exit = $LASTEXITCODE
         }
 
-        exit $exit
-
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+        Write-Host "Package Directory: $packageDir"
         cd $packageDir
 
         Write-Host "::group::test publish to registry"
@@ -96,17 +98,12 @@ runs:
     - id: validate-version
       name: Validate Package Version
       run: |
-        $branch = '${{ steps.target.outputs.branch }}'
-        $isPreview = '${{ github.base_ref == 'main' }}'
+        # validate version
+        $branch = '${{ env.BRANCH }}'
+        $isPreview = '${{ github.base_ref == 'main' || inputs.preview == 'true' }}'
 
-        $readmePath = (Resolve-Path '${{ inputs.package-root }}**/README.md' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
-        $licensePath = (Resolve-Path '${{ inputs.package-root }}**/LICENSE*' | Where-Object { $_.Path -notmatch'.meta' }).ToString()
-        $license = (Resolve-Path 'LICENSE*').ToString()
-
-        Copy-Item 'README.md' -Destination $readmePath
-        Copy-Item $license -Destination $licensePath
-
-        $packageFile = '${{ inputs.package-root }}**/package.json'
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
+        $packageFile = (Resolve-Path "$packageDir/package.json" | Where-Object { $_.Path -notmatch'.meta' }).ToString()
 
         if ( -not (Test-Path -Path $packageFile) ) {
           Write-Error "Failed to find a valid project manifest at `"$packageFile`""
@@ -117,11 +114,12 @@ runs:
         Write-Host "Detected Project Version:" $packageInfo.version
 
         $env:GIT_REDIRECT_STDERR = '2>&1'
-
+        git fetch --all --tags
         $lastRelease = $(git describe --tags $(git rev-list --tags --max-count=1))
 
         if ($lastRelease -match "fatal") {
-          $lastRelease = "0.0.1"
+          Write-Error $lastRelease
+          exit 1
         }
 
         $packageSemVer = [System.Management.Automation.SemanticVersion]$packageInfo.version
@@ -133,15 +131,15 @@ runs:
           Write-Host "Last Release $lastReleaseSemVer"
         }
 
+        if ($packageSemVer -le $lastReleaseSemVer) {
+          $packageSemVer = $lastReleaseSemVer
+        }
+
         if ($isPreview -eq 'true') {
           if (($lastReleaseSemVer.PreReleaseLabel -match '(?<preview>\d+)') -or ($packageSemVer.PreReleaseLabel -match '(?<preview>\d+)')) {
             $preview = ([int]$Matches.preview) + 1
           } else {
-            if ($packageSemVer -le $lastReleaseSemVer) {
-              $lastReleaseSemVer = [System.Management.Automation.SemanticVersion]::New($lastReleaseSemVer.Major, $lastReleaseSemVer.Minor, $lastReleaseSemVer.Patch + 1)
-              $packageSemVer = $lastReleaseSemVer
-            }
-
+            $packageSemVer = [System.Management.Automation.SemanticVersion]::New($packageSemVer.Major, $packageSemVer.Minor, $packageSemVer.Patch + 1)
             $preview = 1
           }
 
@@ -166,7 +164,9 @@ runs:
 
           Write-Host Updating Assembly Versions $lastRelease -> $packageInfo.version
 
-          Get-ChildItem -Path "${{ inputs.package-root }}com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
+          $updatedFiles = @()
+
+          Get-ChildItem -Path "$packageDir/com.xrtk*/**/*AssemblyInfo.cs" -Recurse | ForEach-Object -Process {
             Get-ChildItem -Path $_ -File | ForEach-Object -Process {
               $fileContent = Get-Content $($_.FullName) -Raw
 
@@ -178,65 +178,51 @@ runs:
                 $newAssemblyVersion = "[assembly: AssemblyVersion(""$assemblyVersion"")]"
                 $fileContent -replace $assemblyVersionRegex, $newAssemblyVersion | Set-Content $($_.FullName) -NoNewline
                 echo Updated $_.FullName
+                $updatedFiles += $_.FullName
               }
             }
           }
         }
 
         $version = $packageInfo.version
-        Write-Host "::set-output name=upm-package-version::$version"
+        "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
-        if ($version -eq $lastRelease) {
-          echo "skip version push"
-          exit 0
-        } else {
-          git config user.email "${{ inputs.github-username }}@users.noreply.github.com"
-          git config user.name "${{ inputs.github-username }}"
+        git status
+        git checkout $branch
+        git pull
+        git add $packageFile
 
-          git status
-          git pull
-          git add '${{ inputs.package-root }}**/package.json'
-          git add '${{ inputs.package-root }}${{ github.event.repository.name }}/**/*AssemblyInfo.cs'
-          git add '${{ inputs.package-root }}**/README.md'
-          git add '${{ inputs.package-root }}**/LICENSE*'
-          git status
-          git commit -m "[skip ci] $version"
-          git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git $branch --force
-          $exit = 0
-
-          if ($LASTEXITCODE -gt 0) {
-            $exit = $LASTEXITCODE
-          }
-
-          git status
-          exit $exit
+        foreach ($file in $updatedFiles) {
+          git add $file
         }
+
+        git status
+        git commit -m "[skip ci] $version"
+        git push https://${{ inputs.github-username }}:$env:GITHUB_TOKEN@github.com/${{ github.repository }}.git $branch --force
+        $exit = 0
+
+        if ($LASTEXITCODE -gt 0) {
+          $exit = $LASTEXITCODE
+        }
+
+        git status
+        exit $exit
       shell: pwsh
       working-directory: ${{ github.workspace }}
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        GITHUB_PAT: ${{ inputs.github-pat }}
 
-    - name: upm subtree split
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
-      run: |
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
-        $packageDir = $packageDir.replace('${{ github.workspace }}/','')
-        Write-Host "::group:: $packageDir subtree split"
-        git subtree split --prefix="$packageDir" -b upm
-        Write-Host "::endgroup::"
-        git tag '${{ steps.validate-version.outputs.upm-package-version }}' upm
-        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ steps.validate-version.outputs.upm-package-version }}' --force
-      working-directory: ${{ github.workspace }}
-      shell: pwsh
-      env:
-        GITHUB_PAT: ${{ inputs.github-pat }}
+    - uses: RageAgainstThePixel/upm-subtree-split@v1.1
+      if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && env.VERSION != '' }}
+      with:
+        package-root: ${{ inputs.package-root }}
 
     - name: upm publish
-      if: ${{ github.ref == 'refs/heads/main' || github.base_ref == 'main' }}
+      if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm') && env.VERSION != '' }}
       run: |
-        $packageDir = Get-Item -Path "${{ inputs.package-root }}com.*" | Select-Object -ExpandProperty FullName
+        # upm publish
+        $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
         cd $packageDir
 
         Write-Host "::group::publish to registry"
@@ -253,3 +239,13 @@ runs:
       shell: pwsh
       env:
         NODE_AUTH_TOKEN: ${{ inputs.upm-auth-token }}
+
+    - name: tag version
+      if: ${{ env.VERSION != '' }}
+      run: |
+        git tag '${{ env.VERSION }}' upm
+        git push https://${{ inputs.github-username }}$env:GITHUB_TOKEN@github.com/${{ github.repository }}.git "${{ env.VERSION }}"
+      working-directory: ${{ github.workspace }}
+      shell: pwsh
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
