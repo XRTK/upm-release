@@ -9,6 +9,7 @@ Part of the [Mixed Reality Toolkit (XRTK)](https://github.com/XRTK) open source 
 ## How to use
 
 Requirements:
+
 - Setup GitHub repository or organization secrets:
   - UPM_TOKEN - npm token used to sign into the server or service.
 - Workflow or Job permissions set to `write`
@@ -21,7 +22,7 @@ jobs:
     runs-on:  ubuntu-latest
 
     steps:
-      - uses: xrtk/upm-release@main
+      - uses: xrtk/upm-release@v5
         name: publish upm package
         with:
           upm-username: 'xrtk-build-bot'

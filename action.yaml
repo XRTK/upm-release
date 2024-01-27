@@ -55,7 +55,7 @@ runs:
     - uses: actions/checkout@v3
       if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
-        token: ${{ inputs.github-pat }}
+        token: ${{ inputs.github-github-token }}
         ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
@@ -225,11 +225,11 @@ runs:
         git checkout upm
         git rebase upm-split
         Write-Host "::endgroup::"
-        git push https://${{ inputs.github-username }}:$env:GITHUB_PAT@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
+        git push https://${{ inputs.github-username }}:$env:GITHUB_TOKEN@github.com/${{ github.repository }}.git upm '${{ env.VERSION }}' --force
       working-directory: ${{ github.workspace }}
       shell: pwsh
       env:
-        GITHUB_PAT: ${{ inputs.github-pat }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - name: upm publish
       if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main' || github.ref == 'refs/heads/upm' || github.base_ref == 'upm') && env.VERSION != '' }}
