@@ -209,7 +209,7 @@ runs:
         Write-Host "commit version changes"
         git commit -m "[skip ci] $version"
         Write-Host "push version changes"
-        git push -u origin $branch --force
+        git push https://${{ inputs.github-token }}@github.com/${{ github.repository }}.git $branch --force
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
