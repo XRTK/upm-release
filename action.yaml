@@ -49,6 +49,7 @@ runs:
           $branch = '${{ github.ref }}'
         }
 
+        Write-Host "branch set to: $branch"
         "BRANCH=$branch" >> $env:GITHUB_ENV
       shell: pwsh
 
@@ -204,7 +205,7 @@ runs:
         git branch
         echo $branch
         git commit -m "[skip ci] $version"
-        git push https://${{ inputs.github-token }}@github.com/${{ github.repository }}.git $branch --force
+        git push -u origin $branch --force
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
