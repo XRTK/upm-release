@@ -101,6 +101,14 @@ runs:
       run: |
         # validate version
         $branch = '${{ env.BRANCH }}'
+
+        if ([string]::IsNullOrEmpty($branch)) {
+          Write-Error "Failed to determine the branch to use for pushing the release."
+          exit 1
+        }
+
+        Write-Host "Release Branch: $branch"
+
         $isPreview = '${{ github.base_ref == 'main' || inputs.preview == 'true' }}'
 
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
@@ -189,22 +197,30 @@ runs:
         "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
+        Write-Host "set git config"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git config user.name "GitHub Actions"
 
+        Write-Host "check current status"
         git status
+        Write-Host "checkout $branch"
         git checkout $branch
+        Write-Host "pull latest changes"
         git pull
+        Write-Host "add package.json"
         git add $packageFile
 
         foreach ($file in $updatedFiles) {
           git add $file
         }
 
+        Write-Host "check current status"
         git status
+        Write-Host "check branch"
         git branch
-        echo $branch
+        Write-Host "commit version changes"
         git commit -m "[skip ci] $version"
+        Write-Host "push version changes"
         git push -u origin $branch --force
         $exit = 0
 
