@@ -33,30 +33,19 @@ inputs:
     description: 'Is this package in preview?'
     required: false
     default: 'false'
+  upm-branch:
+    description: 'The branch to use for the UPM release. (Defaults to upm)'
+    required: false
+    default: 'upm'
 
 runs:
   using: "composite"
   steps:
-    - id: target
-      name: Set target branch
-      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
-      run: |
-        $isPreview = '${{ github.base_ref == 'main' }}'
-
-        if ($isPreview -eq 'true') {
-          $branch = '${{ github.head_ref }}'
-        } else {
-          $branch = '${{ github.ref }}'
-        }
-
-        "BRANCH=$branch" >> $env:GITHUB_ENV
-      shell: pwsh
-
     - uses: actions/checkout@v4
       if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
         token: ${{ inputs.github-token }}
-        ref: ${{ env.BRANCH }}
+        ref: ${{ inputs.upm-branch }}
         fetch-depth: 0
 
     - uses: actions/setup-node@v4.0.1
@@ -99,7 +88,15 @@ runs:
       name: Validate Package Version
       run: |
         # validate version
-        $branch = '${{ env.BRANCH }}'
+        $branch = '${{ inputs.upm-branch }}'
+
+        if ([string]::IsNullOrEmpty($branch)) {
+          Write-Error "Failed to determine the branch to use for pushing the release."
+          exit 1
+        }
+
+        Write-Host "::debug::Release Branch: $branch"
+
         $isPreview = '${{ github.base_ref == 'main' || inputs.preview == 'true' }}'
 
         $packageDir = Get-Item -Path "${{ inputs.package-root }}" | Select-Object -ExpandProperty FullName
@@ -188,18 +185,31 @@ runs:
         "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
+        Write-Host "::debug::set git config"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git config user.name "GitHub Actions"
+
+        Write-Host "::debug::check current status"
         git status
+        Write-Host "::debug::checkout $branch"
         git checkout $branch
+        Write-Host "::debug::pull latest changes"
         git pull
+        Write-Host "::debug::add package.json"
         git add $packageFile
 
         foreach ($file in $updatedFiles) {
           git add $file
         }
 
+        Write-Host "::debug::check current status"
         git status
+        Write-Host "::debug::check branch"
+        git branch
+        Write-Host "::debug::commit version changes"
         git commit -m "[skip ci] $version"
-        git push https://${{ inputs.github-username }}:$env:GITHUB_TOKEN@github.com/${{ github.repository }}.git $branch --force
+        Write-Host "::debug::push version changes"
+        git push https://${{ inputs.github-token }}@github.com/${{ github.repository }}.git $branch --force
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
@@ -210,8 +220,6 @@ runs:
         exit $exit
       shell: pwsh
       working-directory: ${{ github.workspace }}
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - uses: RageAgainstThePixel/upm-subtree-split@v1.1
       if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && env.VERSION != '' }}
