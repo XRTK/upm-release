@@ -22,7 +22,7 @@ jobs:
     runs-on:  ubuntu-latest
 
     steps:
-      - uses: xrtk/upm-release@v5
+      - uses: xrtk/upm-release@v5.1
         name: publish upm package
         with:
           upm-username: 'xrtk-build-bot'
