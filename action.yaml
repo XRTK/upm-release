@@ -33,36 +33,19 @@ inputs:
     description: 'Is this package in preview?'
     required: false
     default: 'false'
+  upm-branch:
+    description: 'The branch to use for the UPM release. (Defaults to upm)'
+    required: false
+    default: 'upm'
 
 runs:
   using: "composite"
   steps:
-    - id: target
-      name: Set target branch
-      if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
-      run: |
-        $isPreview = '${{ github.base_ref == 'main' }}'
-
-        if ($isPreview -eq 'true') {
-          $branch = '${{ github.head_ref }}'
-        } else {
-          $branch = '${{ github.ref }}'
-        }
-
-        if ([string]::IsNullOrEmpty($branch)) {
-          Write-Error "Failed to determine the branch to use for release."
-          exit 1
-        }
-
-        Write-Host "branch set to: $branch"
-        "BRANCH=$branch" >> $env:GITHUB_ENV
-      shell: pwsh
-
     - uses: actions/checkout@v4
       if: ${{ github.ref != 'refs/heads/upm' && github.base_ref != 'upm' }}
       with:
         token: ${{ inputs.github-token }}
-        ref: ${{ env.BRANCH }}
+        ref: ${{ inputs.upm-branch }}
         fetch-depth: 0
 
     - uses: actions/setup-node@v4.0.1
@@ -105,7 +88,7 @@ runs:
       name: Validate Package Version
       run: |
         # validate version
-        $branch = '${{ env.BRANCH }}'
+        $branch = '${{ inputs.upm-branch }}'
 
         if ([string]::IsNullOrEmpty($branch)) {
           Write-Error "Failed to determine the branch to use for pushing the release."
