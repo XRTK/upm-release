@@ -201,8 +201,9 @@ runs:
         }
 
         git status
+        git branch
         git commit -m "[skip ci] $version"
-        git push https://${{ inputs.github-username }}:$env:GITHUB_TOKEN@github.com/${{ github.repository }}.git $branch --force
+        git push https://${{ inputs.github-token }}@github.com/${{ github.repository }}.git $branch --force
         $exit = 0
 
         if ($LASTEXITCODE -gt 0) {
@@ -213,8 +214,6 @@ runs:
         exit $exit
       shell: pwsh
       working-directory: ${{ github.workspace }}
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - uses: RageAgainstThePixel/upm-subtree-split@v1.1
       if: ${{ (github.ref == 'refs/heads/main' || github.base_ref == 'main') && env.VERSION != '' }}
