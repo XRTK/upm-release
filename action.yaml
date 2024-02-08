@@ -49,6 +49,11 @@ runs:
           $branch = '${{ github.ref }}'
         }
 
+        if ([string]::IsNullOrEmpty($branch)) {
+          Write-Error "Failed to determine the branch to use for release."
+          exit 1
+        }
+
         Write-Host "branch set to: $branch"
         "BRANCH=$branch" >> $env:GITHUB_ENV
       shell: pwsh
