@@ -95,7 +95,7 @@ runs:
           exit 1
         }
 
-        Write-Host "Release Branch: $branch"
+        Write-Host "::debug::Release Branch: $branch"
 
         $isPreview = '${{ github.base_ref == 'main' || inputs.preview == 'true' }}'
 
@@ -185,30 +185,30 @@ runs:
         "VERSION=$version" >> $env:GITHUB_ENV
         $packageInfo | ConvertTo-Json | Set-Content $packageFile
 
-        Write-Host "set git config"
+        Write-Host "::debug::set git config"
         git config user.email "github-actions[bot]@users.noreply.github.com"
         git config user.name "GitHub Actions"
 
-        Write-Host "check current status"
+        Write-Host "::debug::check current status"
         git status
-        Write-Host "checkout $branch"
+        Write-Host "::debug::checkout $branch"
         git checkout $branch
-        Write-Host "pull latest changes"
+        Write-Host "::debug::pull latest changes"
         git pull
-        Write-Host "add package.json"
+        Write-Host "::debug::add package.json"
         git add $packageFile
 
         foreach ($file in $updatedFiles) {
           git add $file
         }
 
-        Write-Host "check current status"
+        Write-Host "::debug::check current status"
         git status
-        Write-Host "check branch"
+        Write-Host "::debug::check branch"
         git branch
-        Write-Host "commit version changes"
+        Write-Host "::debug::commit version changes"
         git commit -m "[skip ci] $version"
-        Write-Host "push version changes"
+        Write-Host "::debug::push version changes"
         git push https://${{ inputs.github-token }}@github.com/${{ github.repository }}.git $branch --force
         $exit = 0
 
